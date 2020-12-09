@@ -9,7 +9,10 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"github.com/ilooky/dm/i18n"
+	"regexp"
+	"strings"
 	"sync"
+	"xorm.io/core"
 )
 
 // 发版标记
@@ -21,6 +24,7 @@ var globalDmDriver = newDmDriver()
 
 func init() {
 	sql.Register("dm", globalDmDriver)
+	core.RegisterDriver("dm", globalDmDriver)
 }
 
 func driverInit(svcConfPath string) {
@@ -49,6 +53,41 @@ func newDmDriver() *DmDriver {
 	d := new(DmDriver)
 	d.idGenerator = dmDriverIDGenerator
 	return d
+}
+
+func (d *DmDriver) Parse(driverName string, dataSourceName string) (*core.Uri, error) {
+	dsnPattern := regexp.MustCompile(
+		`^(?:(?P<user>.*?)(?::(?P<passwd>.*))?@)?` + // [user[:password]@]
+			`(?:(?P<net>[^\(]*)(?:\((?P<addr>[^\)]*)\))?)?` + // [net[(addr)]]
+			`\/(?P<dbname>.*?)` + // /dbname
+			`(?:\?(?P<params>[^\?]*))?$`) // [?param1=value1&paramN=valueN]
+	matches := dsnPattern.FindStringSubmatch(dataSourceName)
+	// tlsConfigRegister := make(map[string]*tls.Config)
+	names := dsnPattern.SubexpNames()
+
+	uri := &core.Uri{DbType: core.ORACLE}
+
+	for i, match := range matches {
+		switch names[i] {
+		case "dbname":
+			uri.DbName = match
+		case "params":
+			if len(match) > 0 {
+				kvs := strings.Split(match, "&")
+				for _, kv := range kvs {
+					splits := strings.Split(kv, "=")
+					if len(splits) == 2 {
+						switch splits[0] {
+						case "charset":
+							uri.Charset = splits[1]
+						}
+					}
+				}
+			}
+
+		}
+	}
+	return uri, nil
 }
 
 /*************************************************************
