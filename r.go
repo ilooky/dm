@@ -25,6 +25,9 @@ var globalDmDriver = newDmDriver()
 func init() {
 	sql.Register("dm", globalDmDriver)
 	core.RegisterDriver("dm", globalDmDriver)
+	core.RegisterDialect("dm", func() core.Dialect {
+		return &dm{}
+	})
 }
 
 func driverInit(svcConfPath string) {
@@ -65,7 +68,7 @@ func (d *DmDriver) Parse(driverName string, dataSourceName string) (*core.Uri, e
 	// tlsConfigRegister := make(map[string]*tls.Config)
 	names := dsnPattern.SubexpNames()
 
-	uri := &core.Uri{DbType: core.ORACLE}
+	uri := &core.Uri{DbType: "dm"}
 
 	for i, match := range matches {
 		switch names[i] {
