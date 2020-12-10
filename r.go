@@ -8,14 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"errors"
-	"fmt"
 	"github.com/ilooky/dm/i18n"
-	"regexp"
 	"sync"
-	"xorm.io/xorm"
-	"xorm.io/xorm/dialects"
-	"xorm.io/xorm/schemas"
 )
 
 // 发版标记
@@ -27,18 +21,6 @@ var globalDmDriver = newDmDriver()
 
 func init() {
 	sql.Register("dm", globalDmDriver)
-	dialects.RegisterDriver("dm", globalDmDriver)
-}
-
-//dm://user:password@host:port?logLevel=all
-//%s/%s@%s:%s/ORCL
-func odbc() *xorm.Engine {
-	engine, err := xorm.NewEngine("dm", "dm://SYSDBA:SYSDBA@192.168.1.108:5236/oci8?logLevel=all")
-	if err != nil {
-		fmt.Println("new engine got error:", err)
-		return nil
-	}
-	return engine
 }
 
 func driverInit(svcConfPath string) {
@@ -61,26 +43,6 @@ func driverInit(svcConfPath string) {
 type DmDriver struct {
 	filterable
 	readPropMutex sync.Mutex
-}
-
-func (d *DmDriver) Parse(driverName, dataSourceName string) (*dialects.URI, error) {
-	db := &dialects.URI{DBType: schemas.ORACLE}
-	dsnPattern := regexp.MustCompile(
-		`^(?P<user>.*)\/(?P<password>.*)@` + // user:password@
-			`(?P<net>.*)` + // ip:port
-			`\/(?P<dbname>.*)`) // dbname
-	matches := dsnPattern.FindStringSubmatch(dataSourceName)
-	names := dsnPattern.SubexpNames()
-	for i, match := range matches {
-		switch names[i] {
-		case "dbname":
-			db.DBName = match
-		}
-	}
-	if db.DBName == "" && len(matches) != 0 {
-		return nil, errors.New("dbname is empty")
-	}
-	return db, nil
 }
 
 func newDmDriver() *DmDriver {
